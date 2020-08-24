@@ -240,6 +240,9 @@
     <ClCompile Include="algo\x11.c">
       <Filter>algo</Filter>
     </ClCompile>
+    <ClCompile Include="algo\x11k.c">
+      <Filter>algo</Filter>
+    </ClCompile>
     <ClCompile Include="algo\x13.c">
       <Filter>algo</Filter>
     </ClCompile>

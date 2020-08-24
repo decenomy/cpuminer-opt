@@ -578,6 +578,7 @@ enum algos {
         ALGO_WHIRLPOOL,
         ALGO_WHIRLPOOLX,
         ALGO_X11,
+        ALGO_X11K,
         ALGO_X11EVO,         
         ALGO_X11GOST,
         ALGO_X12,
@@ -670,6 +671,7 @@ static const char* const algo_names[] = {
         "whirlpool",
         "whirlpoolx",
         "x11",
+        "x11k",
         "x11evo",
         "x11gost",
         "x12",
@@ -829,6 +831,7 @@ Options:\n\
                           whirlpool\n\
                           whirlpoolx\n\
                           x11           Dash\n\
+                          x11k          Sapphire, Kyanite, Heliodor\n\
                           x11evo        Revolvercoin (XRE)\n\
                           x11gost       sib (SibCoin)\n\
                           x12           Galaxie Cash (GCH)\n\

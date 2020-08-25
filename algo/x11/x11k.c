@@ -43,42 +43,43 @@ typedef struct
    cubehashParam cube;
    sph_shavite512_context shavite;
    hashState_sd simd;
-} x11_ctx_holder;
+} x11k_ctx_holder;
 
-x11_ctx_holder x11_ctx;
+x11k_ctx_holder x11k_ctx;
 
 void init_x11k_ctx()
 {
-   sph_blake512_init(&x11_ctx.blake);
-   sph_bmw512_init(&x11_ctx.bmw);
+   sph_blake512_init(&x11k_ctx.blake);
+   sph_bmw512_init(&x11k_ctx.bmw);
 #if defined(__AES__)
-   init_groestl(&x11_ctx.groestl, 64);
-   init_echo(&x11_ctx.echo, 512);
+   init_groestl(&x11k_ctx.groestl, 64);
+   init_echo(&x11k_ctx.echo, 512);
 #else
-   sph_groestl512_init(&x11_ctx.groestl);
-   sph_echo512_init(&x11_ctx.echo);
+   sph_groestl512_init(&x11k_ctx.groestl);
+   sph_echo512_init(&x11k_ctx.echo);
 #endif
-   sph_skein512_init(&x11_ctx.skein);
-   sph_jh512_init(&x11_ctx.jh);
-   sph_keccak512_init(&x11_ctx.keccak);
-   init_luffa(&x11_ctx.luffa, 512);
-   cubehashInit(&x11_ctx.cube, 512, 16, 32);
-   sph_shavite512_init(&x11_ctx.shavite);
-   init_sd(&x11_ctx.simd, 512);
+   sph_skein512_init(&x11k_ctx.skein);
+   sph_jh512_init(&x11k_ctx.jh);
+   sph_keccak512_init(&x11k_ctx.keccak);
+   init_luffa(&x11k_ctx.luffa, 512);
+   cubehashInit(&x11k_ctx.cube, 512, 16, 32);
+   sph_shavite512_init(&x11k_ctx.shavite);
+   init_sd(&x11k_ctx.simd, 512);
 }
 
 void x11k_hash(void *state, const void *input)
 {
    unsigned char hash[64] __attribute__((aligned(64)));
-   x11_ctx_holder ctx;
-   memcpy(&ctx, &x11_ctx, sizeof(x11_ctx));
+   x11k_ctx_holder ctx;
+   memcpy(&ctx, &x11k_ctx, sizeof(x11k_ctx));
 
    sph_blake512(&ctx.blake, input, 80);
    sph_blake512_close(&ctx.blake, hash);
 
    for (int i = 1; i < 64; i++)
    {
-      switch (hash[i] % 11)
+      unsigned char * p = hash;
+      switch (p[i] % 11)
       {
       case 0:
          sph_blake512_init(&ctx.blake);
@@ -138,7 +139,7 @@ void x11k_hash(void *state, const void *input)
          break;
       case 10:
 #if defined(__AES__)
-         init_echo(&x11_ctx.echo, 512);
+         init_echo(&ctx.echo, 512);
          update_final_echo(&ctx.echo, (BitSequence *)hash,
                            (const BitSequence *)hash, 512);
 #else

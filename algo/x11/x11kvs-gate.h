@@ -6,7 +6,7 @@
 
 bool register_x11kvs_algo(algo_gate_t *gate);
 
-void x11kvs_hash(void *state, const void *input);
+void x11kvs_hash(void *state, const void *input, uint8_t* cache);
 int scanhash_x11kvs(struct work *work, uint32_t max_nonce,
                   uint64_t *hashes_done, struct thr_info *mythr);
 void init_x11kv_ctx();

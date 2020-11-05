@@ -162,26 +162,79 @@ void x11kv(void *state, const void *input)
    memcpy(state, hash, 32);
 }
 
-const unsigned int HASHX11KVS_MAX_LEVEL = 7;
-const unsigned int HASHX11KVS_MIN_LEVEL = 1;
-const unsigned int HASHX11KVS_MAX_DRIFT = 0xFFFF;
+const uint32_t HASHX11KVS_MAX_LEVEL 		= 7;
+const uint32_t HASHX11KVS_MIN_LEVEL 		= 1;
+const uint32_t HASHX11KVS_MAX_DRIFT 		= 0xFFFF;
+const uint32_t HASHX11KVS_CACHE_CHUNK 		= 33;
+const uint32_t HASHX11KVS_CACHE_POSITIONS	= 0xFFFF;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_2	= 0xFFFF * 2;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_3	= 0xFFFF * 3;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_4	= 0xFFFF * 4;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_5	= 0xFFFF * 5;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_6	= 0xFFFF * 6;
+const uint32_t HASHX11KVS_CACHE_SIZE		= 0xFFFF * 33;
+const uint32_t HASHX11KVS_CACHE_SIZE_2		= 0xFFFF * 33 + 0xFFFF * 33 * 2;
+const uint32_t HASHX11KVS_CACHE_SIZE_3		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3; 
+const uint32_t HASHX11KVS_CACHE_SIZE_4		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4;
+const uint32_t HASHX11KVS_CACHE_SIZE_5		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4 + 0xFFFF * 33 * 5;
+const uint32_t HASHX11KVS_CACHE_SIZE_6		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4 + 0xFFFF * 33 * 5 + 0xFFFF * 33 * 6;
 
-void x11kvshash(void *state, const void *input, unsigned int level)
+void x11kvshash(void *output, const void *input, uint32_t level, uint32_t nonce, uint8_t* cache)
 {
-    uint8_t* hash = (uint8_t*) malloc(32);
-	x11kv(hash, input);
-    
-	if (level == HASHX11KVS_MIN_LEVEL)
-	{
-		memcpy(state, hash, 32);
-		free(hash);
+    if(level == HASHX11KVS_MAX_LEVEL - 1 && cache[(nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
+		memcpy(output, cache + ((nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
 		return;
 	}
 
-    uint32_t nonce = le32dec(input + 76);
+	if(level == HASHX11KVS_MAX_LEVEL - 2 && cache[HASHX11KVS_CACHE_SIZE + (nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
+		memcpy(output, cache + HASHX11KVS_CACHE_SIZE + ((nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+		return;
+	}
 
-    uint8_t* nextheader1 = (uint8_t*) malloc(80);
-    uint8_t* nextheader2 = (uint8_t*) malloc(80);
+	if(level == HASHX11KVS_MAX_LEVEL - 3 && cache[HASHX11KVS_CACHE_SIZE_2 + (nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
+		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_2 + ((nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+		return;
+	}
+
+	if(level == HASHX11KVS_MAX_LEVEL - 4 && cache[HASHX11KVS_CACHE_SIZE_3 + (nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
+		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_3 + ((nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+		return;
+	}
+
+	if(level == HASHX11KVS_MAX_LEVEL - 5 && cache[HASHX11KVS_CACHE_SIZE_4 + (nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
+		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_4 + ((nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+		return;
+	}
+
+	if(level == HASHX11KVS_MAX_LEVEL - 6 && cache[HASHX11KVS_CACHE_SIZE_5 + (nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
+		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_5 + ((nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+		return;
+	}
+
+	uint8_t hash[96];
+	x11kv(hash, input);
+
+	if (level == HASHX11KVS_MIN_LEVEL)
+	{
+		memcpy(output, hash, 32);
+		cache[HASHX11KVS_CACHE_SIZE_5 + (nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+		memcpy(cache + HASHX11KVS_CACHE_SIZE_5 + ((nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		return;
+	}
+
+	if (level == HASHX11KVS_MAX_LEVEL)
+	{
+		// cache clean
+		cache[((nonce - 1) % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] = 0x00;
+		cache[HASHX11KVS_CACHE_SIZE + ((nonce - 1) % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK] = 0x00;
+		cache[HASHX11KVS_CACHE_SIZE_2 + ((nonce - 1) % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK] = 0x00;
+		cache[HASHX11KVS_CACHE_SIZE_3 + ((nonce - 1) % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK] = 0x00;
+		cache[HASHX11KVS_CACHE_SIZE_4 + ((nonce - 1) % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK] = 0x00;
+		cache[HASHX11KVS_CACHE_SIZE_5 + ((nonce - 1) % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] = 0x00;
+	}
+
+    uint8_t nextheader1[80];
+    uint8_t nextheader2[80];
 
     uint32_t nextnonce1 = nonce + (le32dec(hash + 24) % HASHX11KVS_MAX_DRIFT);
     uint32_t nextnonce2 = nonce + (le32dec(hash + 28) % HASHX11KVS_MAX_DRIFT);
@@ -192,83 +245,105 @@ void x11kvshash(void *state, const void *input, unsigned int level)
     memcpy(nextheader2, input, 76);
     le32enc(nextheader2 + 76, nextnonce2);
 
-	uint8_t* hash1 = (uint8_t*) malloc(32);
-	uint8_t* hash2 = (uint8_t*) malloc(32);
+	x11kvshash(hash + 32, nextheader1, level - 1, nextnonce1, cache);
+    x11kvshash(hash + 64, nextheader2, level - 1, nextnonce2, cache);
 
-	x11kvshash(hash1, nextheader1, level - 1);
-    x11kvshash(hash2, nextheader2, level - 1);
+	sha256d(output, hash, 96);
 
-	// Concat hash, hash1 and hash2
-	uint8_t* hashConcated = (uint8_t*) malloc(96);
-	memcpy(hashConcated, hash, 32);
-	memcpy(hashConcated + 32, hash1, 32);
-	memcpy(hashConcated + 32 + 32, hash2, 32);
+	// cache store
+	if(level == HASHX11KVS_MAX_LEVEL - 1) { 
+		cache[(nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+		memcpy(cache + ((nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		return;
+	}
 
-	sha256d(state, hashConcated, 96);
+	if(level == HASHX11KVS_MAX_LEVEL - 2) { 
+		cache[HASHX11KVS_CACHE_SIZE + (nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+		memcpy(cache + HASHX11KVS_CACHE_SIZE + ((nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		return;
+	}
 
-	free(hash);
-	free(hash1);
-	free(hash2);
-	free(nextheader1);
-	free(nextheader2);
-	free(hashConcated);
+	if(level == HASHX11KVS_MAX_LEVEL - 3) { 
+		cache[HASHX11KVS_CACHE_SIZE_2 + (nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+		memcpy(cache + HASHX11KVS_CACHE_SIZE_2 + ((nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		return;
+	}
+
+	if(level == HASHX11KVS_MAX_LEVEL - 4) { 
+		cache[HASHX11KVS_CACHE_SIZE_3 + (nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+		memcpy(cache + HASHX11KVS_CACHE_SIZE_3 + ((nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		return;
+	}
+
+	if(level == HASHX11KVS_MAX_LEVEL - 5) { 
+		cache[HASHX11KVS_CACHE_SIZE_4 + (nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+		memcpy(cache + HASHX11KVS_CACHE_SIZE_4 + ((nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		return;
+	}
 }
 
-void x11kvs_hash(void *state, const void *input)
+void x11kvs_hash(void *state, const void *input, uint8_t* cache)
 {
-	x11kvshash(state, input, HASHX11KVS_MAX_LEVEL);
+	x11kvshash(state, input, HASHX11KVS_MAX_LEVEL, le32dec(((uint8_t*)input) + 76), cache);
 }
 
 
 int scanhash_x11kvs(struct work *work, uint32_t max_nonce,
                   uint64_t *hashes_done, struct thr_info *mythr)
 {
-   uint32_t endiandata[20] __attribute__((aligned(64)));
-   uint32_t hash64[8] __attribute__((aligned(64)));
-   uint32_t *pdata = work->data;
-   uint32_t *ptarget = work->target;
-   uint32_t n = pdata[19] - 1;
-   const uint32_t first_nonce = pdata[19];
-   int thr_id = mythr->id;
-   const uint32_t Htarg = ptarget[7];
-   uint64_t htmax[] = {
-       0,
-       0xF,
-       0xFF,
-       0xFFF,
-       0xFFFF,
-       0x10000000};
-   uint32_t masks[] = {
-       0xFFFFFFFF,
-       0xFFFFFFF0,
-       0xFFFFFF00,
-       0xFFFFF000,
-       0xFFFF0000,
-       0};
+	uint32_t endiandata[20] __attribute__((aligned(64)));
+	uint32_t hash64[8] __attribute__((aligned(64)));
+	uint32_t *pdata = work->data;
+	uint32_t *ptarget = work->target;
+	uint32_t n = pdata[19] - 1;
+	const uint32_t first_nonce = pdata[19];
+	int thr_id = mythr->id;
+	const uint32_t Htarg = ptarget[7];
+	uint64_t htmax[] = {
+		0,
+		0xF,
+		0xFF,
+		0xFFF,
+		0xFFFF,
+		0x10000000};
+	uint32_t masks[] = {
+		0xFFFFFFFF,
+		0xFFFFFFF0,
+		0xFFFFFF00,
+		0xFFFFF000,
+		0xFFFF0000,
+		0};
+
+	uint8_t	 *cache = (uint8_t*) malloc(HASHX11KVS_CACHE_SIZE_6);
+
+	memset(cache, 0x00, HASHX11KVS_CACHE_SIZE_6);
 
    // big endian encode 0..18 uint32_t, 64 bits at a time
    swab32_array(endiandata, pdata, 20);
 
-   for (int m = 0; m < 6; m++)
+   for (int m = 0; m < 6; m++) {
       if (Htarg <= htmax[m])
       {
-         uint32_t mask = masks[m];
-         do
-         {
-            pdata[19] = ++n;
-            be32enc(&endiandata[19], n);
-            x11kvs_hash(hash64, &endiandata);
-            
-            if ((hash64[7] & mask) == 0)
-            {
-               if (fulltest(hash64, ptarget))
-                  submit_solution(work, hash64, mythr);
-            }
-         } while (n < max_nonce && !work_restart[thr_id].restart);
+		uint32_t mask = masks[m];
+		do
+		{
+			pdata[19] = swab32(++n);
+			le32enc(&endiandata[19], n);
+			x11kvs_hash(hash64, &endiandata, cache);
+
+			if ((hash64[7] & mask) == 0)
+			{
+				if (fulltest(hash64, ptarget)) {
+					submit_solution(work, hash64, mythr);
+				}
+			}
+		} while (n < max_nonce && !work_restart[thr_id].restart);
       }
+   }
 
    *hashes_done = n - first_nonce + 1;
    pdata[19] = n;
+   free(cache);
    return 0;
 }
 #endif

@@ -24,6 +24,7 @@
 #if defined(__AES__)
   #include "algo/echo/aes_ni/hash_api.h"
   #include "algo/groestl/aes_ni/hash-groestl.h"
+  #include "algo/fugue/fugue-aesni.h"
 #endif
 #if defined (__AVX2__)
 #include "algo/blake/blake-hash-4way.h"
@@ -40,6 +41,7 @@
 #include "algo/sha/sha-hash-4way.h"
 #if defined(__VAES__)
   #include "algo/groestl/groestl512-hash-4way.h"
+  #include "algo/shavite/shavite-hash-2way.h"
   #include "algo/shavite/shavite-hash-4way.h"
   #include "algo/echo/echo-hash-4way.h"
 #endif
@@ -111,7 +113,7 @@ union _x16r_8way_context_overlay
     cubehashParam           cube;
     simd_4way_context       simd;
     hamsi512_8way_context   hamsi;
-    sph_fugue512_context    fugue;
+    hashState_fugue         fugue;
     shabal512_8way_context  shabal;
     sph_whirlpool_context   whirlpool;
     sha512_8way_context     sha512;
@@ -144,18 +146,24 @@ union _x16r_4way_context_overlay
 {
     blake512_4way_context   blake;
     bmw512_4way_context     bmw;
-    hashState_echo          echo;
+#if defined(__VAES__)
+    groestl512_2way_context groestl;
+    shavite512_2way_context shavite;
+    echo_2way_context       echo;
+#else
     hashState_groestl       groestl;
+    shavite512_context      shavite;
+    hashState_echo          echo;
+#endif
     skein512_4way_context   skein;
     jh512_4way_context      jh;
     keccak512_4way_context  keccak;
     luffa_2way_context      luffa;
     hashState_luffa         luffa1;
     cubehashParam           cube;
-    shavite512_context      shavite;
     simd_2way_context       simd;
     hamsi512_4way_context   hamsi;
-    sph_fugue512_context    fugue;
+    hashState_fugue         fugue;
     shabal512_4way_context  shabal;
     sph_whirlpool_context   whirlpool;
     sha512_4way_context     sha512;
@@ -180,9 +188,11 @@ union _x16r_context_overlay
 #if defined(__AES__)
         hashState_echo          echo;
         hashState_groestl       groestl;
+        hashState_fugue         fugue;
 #else
         sph_groestl512_context   groestl;
         sph_echo512_context      echo;
+        sph_fugue512_context    fugue;
 #endif
         sph_blake512_context    blake;
         sph_bmw512_context      bmw;
@@ -194,7 +204,6 @@ union _x16r_context_overlay
         shavite512_context      shavite;
         hashState_sd            simd;
         sph_hamsi512_context    hamsi;
-        sph_fugue512_context    fugue;
         sph_shabal512_context   shabal;
         sph_whirlpool_context   whirlpool;
         SHA512_CTX              sha512;

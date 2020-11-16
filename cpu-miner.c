@@ -1829,10 +1829,11 @@ bool submit_solution( struct work *work, const void *hash,
      update_submit_stats( work, hash );
 
      if unlikely( !have_stratum && !have_longpoll )
-     {   // block solved, force getwork
+     {   // solo, block solved, force getwork
          pthread_rwlock_wrlock( &g_work_lock );
          g_work_time = 0;
          pthread_rwlock_unlock( &g_work_lock );
+         restart_threads();
      }
 
      if ( !opt_quiet )
@@ -1868,25 +1869,25 @@ static bool wanna_mine(int thr_id)
 	bool state = true;
 
 	if (opt_max_temp > 0.0)
-        {
+   {
 		float temp = cpu_temp(0);
 		if (temp > opt_max_temp)
-                {
+      {
 			if (!thr_id && !conditional_state[thr_id] && !opt_quiet)
 				applog(LOG_INFO, "temperature too high (%.0fC), waiting...", temp);
 			state = false;
 		}
 	}
 	if (opt_max_diff > 0.0 && net_diff > opt_max_diff)
-        {
+   {
 		if (!thr_id && !conditional_state[thr_id] && !opt_quiet)
 			applog(LOG_INFO, "network diff too high, waiting...");
 		state = false;
 	}
 	if (opt_max_rate > 0.0 && net_hashrate > opt_max_rate)
-        {
+   {
 		if (!thr_id && !conditional_state[thr_id] && !opt_quiet)
-                {
+      {
 			char rate[32];
 			format_hashrate(opt_max_rate, rate);
 			applog(LOG_INFO, "network hashrate too high, waiting %s...", rate);
@@ -1903,7 +1904,7 @@ static bool wanna_mine(int thr_id)
 // default
 void sha256d_gen_merkle_root( char* merkle_root, struct stratum_ctx* sctx )
 {
-  sha256d(merkle_root, sctx->job.coinbase, (int) sctx->job.coinbase_size);
+  sha256d( merkle_root, sctx->job.coinbase, (int) sctx->job.coinbase_size );
   for ( int i = 0; i < sctx->job.merkle_count; i++ )
   {
      memcpy( merkle_root + 32, sctx->job.merkle[i], 32 );
@@ -2038,7 +2039,7 @@ static void stratum_gen_work( struct stratum_ctx *sctx, struct work *g_work )
    {
       unsigned char *xnonce2str = abin2hex( g_work->xnonce2,
                                             g_work->xnonce2_len );
-      applog( LOG_INFO, "Extranonce %s, Block %d, Net Diff %.5g",
+      applog( LOG_INFO, "Extranonce2 %s, Block %d, Net Diff %.5g",
                   xnonce2str, sctx->block_height, net_diff );
       free( xnonce2str );
    }
@@ -2330,8 +2331,8 @@ static void *miner_thread( void *userdata )
        // If unsubmiited nonce(s) found, submit now. 
        if ( unlikely( nonce_found && !opt_benchmark ) )
        {  
-          applog( LOG_WARNING, "BUG: See RELEASE_NOTES for reporting bugs. Algo = %s.",
-                               algo_names[ opt_algo ] );
+//          applog( LOG_WARNING, "BUG: See RELEASE_NOTES for reporting bugs. Algo = %s.",
+//                               algo_names[ opt_algo ] );
           if ( !submit_work( mythr, &work ) )
           {
              applog( LOG_WARNING, "Failed to submit share." );
@@ -2363,14 +2364,14 @@ static void *miner_thread( void *userdata )
 
        prev_hi_temp = hi_temp;
        curr_temp = cpu_temp(0);
-       timeval_subtract( &diff, &tv_end, &cpu_temp_time );
        if ( curr_temp > hi_temp ) hi_temp = curr_temp;
 
        pthread_mutex_unlock( &stats_lock );
 
        if ( !opt_quiet || ( curr_temp >= 80 ) )
        {
-          int wait_time = curr_temp >= 80 ? 30 : curr_temp >= 70 ? 60 : 120;
+          int wait_time = curr_temp >= 80 ? 20 : curr_temp >= 70 ? 60 : 120;
+          timeval_subtract( &diff, &tv_end, &cpu_temp_time );
           if ( ( diff.tv_sec > wait_time ) || ( curr_temp > prev_hi_temp ) )
           {
              char tempstr[32];
@@ -2747,7 +2748,10 @@ static void *stratum_thread(void *userdata )
             sleep(opt_fail_pause);
          }
          else
+         {
+            restart_threads();
             applog(LOG_BLUE,"Stratum connection established" );
+         }
       }
 
       report_summary_log( ( stratum_diff != stratum.job.diff )
@@ -3379,13 +3383,14 @@ bool check_cpu_capability ()
      bool sw_has_sha    = false;
      bool sw_has_vaes   = false;
      set_t algo_features = algo_gate.optimizations;
-     bool algo_has_sse2   = set_incl( SSE2_OPT,    algo_features );
-     bool algo_has_aes    = set_incl( AES_OPT,     algo_features );
-     bool algo_has_sse42  = set_incl( SSE42_OPT,   algo_features );
-     bool algo_has_avx2   = set_incl( AVX2_OPT,    algo_features );
-     bool algo_has_avx512 = set_incl( AVX512_OPT,  algo_features );
-     bool algo_has_sha    = set_incl( SHA_OPT,     algo_features );
-     bool algo_has_vaes   = set_incl( VAES_OPT,    algo_features );
+     bool algo_has_sse2    = set_incl( SSE2_OPT,    algo_features );
+     bool algo_has_aes     = set_incl( AES_OPT,     algo_features );
+     bool algo_has_sse42   = set_incl( SSE42_OPT,   algo_features );
+     bool algo_has_avx2    = set_incl( AVX2_OPT,    algo_features );
+     bool algo_has_avx512  = set_incl( AVX512_OPT,  algo_features );
+     bool algo_has_sha     = set_incl( SHA_OPT,     algo_features );
+     bool algo_has_vaes    = set_incl( VAES_OPT,    algo_features );
+     bool algo_has_vaes256 = set_incl( VAES256_OPT, algo_features );
      bool use_aes;
      bool use_sse2;
      bool use_sse42;
@@ -3506,7 +3511,8 @@ bool check_cpu_capability ()
      use_avx2   = cpu_has_avx2   && sw_has_avx2   && algo_has_avx2;
      use_avx512 = cpu_has_avx512 && sw_has_avx512 && algo_has_avx512;
      use_sha    = cpu_has_sha    && sw_has_sha    && algo_has_sha;
-     use_vaes   = cpu_has_vaes   && sw_has_vaes   && algo_has_vaes;
+     use_vaes   = cpu_has_vaes   && sw_has_vaes   && algo_has_vaes 
+	       && ( use_avx512 || algo_has_vaes256 );   
      use_none = !( use_sse2 || use_aes || use_sse42 || use_avx512 || use_avx2 ||
                    use_sha || use_vaes );
       

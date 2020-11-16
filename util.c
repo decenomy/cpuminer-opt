@@ -1197,19 +1197,21 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 // increases the effective precision. Due to the floating nature of the
 // decimal point leading zeros aren't counted.
 //
-// Unfortunately I can't get float128 to work so long double it is.
+// Unfortunately I can't get float128 to work so long double (float80) is
+// as precise as it gets.
 // All calculations will be done using long double then converted to double.
-// This prevent introducing significant new error while taking advantage
+// This prevents introducing significant new error while taking advantage
 // of HW rounding.
 
 #if defined(GCC_INT128)
 
 void diff_to_hash(uint32_t *target, const double diff)
 {
-	uint128_t *targ = (uint128_t *)target;
-	register long double m = 1. / diff;
-	targ[0] = 0;
-	targ[1] = (uint128_t)(m * exp96);
+  uint128_t *targ = (uint128_t*)target;
+  register long double m = 1. / diff;
+//  targ[0] = 0;
+  targ[0] = -1;
+  targ[1] = (uint128_t)( m * exp96 );
 }
 
 double hash_to_diff(const void *target)
@@ -1237,11 +1239,12 @@ inline bool valid_hash(const void *hash, const void *target)
 
 void diff_to_hash(uint32_t *target, const double diff)
 {
-	uint64_t *targ = (uint64_t *)target;
-	register long double m = (1. / diff) * exp32;
-	targ[1] = targ[0] = 0;
-	targ[3] = (uint64_t)m;
-	targ[2] = (uint64_t)((m - (long double)targ[3]) * exp64);
+  uint64_t *targ = (uint64_t*)target;
+  register long double m = ( 1. / diff ) * exp32;
+//  targ[1] = targ[0] = 0;
+  targ[1] = targ[0] = -1;
+  targ[3] = (uint64_t)m;
+  targ[2] = (uint64_t)( ( m - (long double)targ[3] ) * exp64 );
 }
 
 double hash_to_diff(const void *target)
@@ -1614,9 +1617,12 @@ static bool stratum_parse_extranonce(struct stratum_ctx *sctx, json_t *params, i
 	sctx->xnonce2_size = xn2_size;
 	pthread_mutex_unlock(&sctx->work_lock);
 
-	if (pndx == 0 && opt_debug) /* pool dynamic change */
-		applog(LOG_DEBUG, "Stratum set nonce %s with extranonce2 size=%d",
-			   xnonce1, xn2_size);
+   if ( !opt_quiet ) /* pool dynamic change */
+      applog( LOG_INFO, "Stratum extranonce1= %s, extranonce2 size= %d",
+         xnonce1, xn2_size);
+//   if (pndx == 0 && opt_debug)
+//		applog(LOG_DEBUG, "Stratum set nonce %s with extranonce2 size=%d",
+//			xnonce1, xn2_size);
 
 	return true;
 out:
@@ -1717,8 +1723,6 @@ out:
 
 	return ret;
 }
-
-extern bool opt_extranonce;
 
 bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass)
 {

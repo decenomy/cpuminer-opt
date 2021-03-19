@@ -327,13 +327,14 @@ int scanhash_x11kvs(struct work *work, uint32_t max_nonce,
 		uint32_t mask = masks[m];
 		do
 		{
-			pdata[19] = swab32(++n);
+			pdata[19] = ++n;
 			le32enc(&endiandata[19], n);
 			x11kvs_hash(hash64, &endiandata, cache);
 
 			if ((hash64[7] & mask) == 0)
 			{
 				if (fulltest(hash64, ptarget)) {
+					pdata[19] = swab32(pdata[19]);
 					submit_solution(work, hash64, mythr);
 				}
 			}

@@ -532,9 +532,7 @@ static bool get_mininginfo( CURL *curl, struct work *work )
 	return true;
 }
 
-// hodl needs 4 but leave it at 3 until gbt better understood
-//#define BLOCK_VERSION_CURRENT 3
-#define BLOCK_VERSION_CURRENT 4
+#define BLOCK_VERSION_CURRENT 3
 
 static bool gbt_work_decode( const json_t *val, struct work *work )
 {
@@ -711,7 +709,7 @@ static bool gbt_work_decode( const json_t *val, struct work *work )
       cbvalue = (int64_t) ( json_is_integer( tmp ) ? json_integer_value( tmp )
                                                    : json_number_value( tmp ) );
       cbtx = (uchar*) malloc(256);
-      le32enc( (uint32_t *)cbtx, 1 ); /* version */
+      le32enc( (uint32_t *)cbtx, 3 | (5 << 16)); /* version */
       cbtx[4] = 1; /* in-counter */
       memset( cbtx+5, 0x00, 32 ); /* prev txout hash */
       le32enc( (uint32_t *)(cbtx+37), 0xffffffff ); /* prev txout index */

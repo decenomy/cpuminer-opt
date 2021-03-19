@@ -371,11 +371,15 @@ bool register_algo_gate( int algo, algo_gate_t *gate )
     case ALGO_X22I:          register_x22i_algo          ( gate ); break;
     case ALGO_X25X:          register_x25x_algo          ( gate ); break;
     case ALGO_XEVAN:         register_xevan_algo         ( gate ); break;
-    case ALGO_YESCRYPT:      register_yescrypt_algo      ( gate ); break;
-    case ALGO_YESCRYPTR8:    register_yescryptr8_algo    ( gate ); break;
+    case ALGO_YESCRYPT:      register_yescrypt_05_algo   ( gate ); break;
+//    case ALGO_YESCRYPT:      register_yescrypt_algo      ( gate ); break;
+    case ALGO_YESCRYPTR8:    register_yescryptr8_05_algo ( gate ); break;
+//    case ALGO_YESCRYPTR8:    register_yescryptr8_algo    ( gate ); break;
     case ALGO_YESCRYPTR8G:   register_yescryptr8g_algo   ( gate ); break;
-    case ALGO_YESCRYPTR16:   register_yescryptr16_algo   ( gate ); break;
-    case ALGO_YESCRYPTR32:   register_yescryptr32_algo   ( gate ); break;
+    case ALGO_YESCRYPTR16:   register_yescryptr16_05_algo( gate ); break;
+//    case ALGO_YESCRYPTR16:   register_yescryptr16_algo   ( gate ); break;
+    case ALGO_YESCRYPTR32:   register_yescryptr32_05_algo( gate ); break;
+//    case ALGO_YESCRYPTR32:   register_yescryptr32_algo   ( gate ); break;
     case ALGO_YESPOWER:      register_yespower_algo      ( gate ); break;
     case ALGO_YESPOWERR16:   register_yespowerr16_algo   ( gate ); break;
     case ALGO_YESPOWER_B2B:  register_yespower_b2b_algo  ( gate ); break;
@@ -416,7 +420,6 @@ void exec_hash_function( int algo, void *output, const void *pdata )
 const char* const algo_alias_map[][2] =
 {
 //   alias                proper
-  { "argon2d-crds",      "argon2d250"     },
   { "argon2d-dyn",       "argon2d500"     },
   { "argon2d-uis",       "argon2d4096"    },
   { "bcd",               "x13bcd"         },

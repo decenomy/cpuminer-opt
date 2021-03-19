@@ -27,66 +27,66 @@
 
 typedef struct
 {
-   sph_blake512_context blake;
-   sph_bmw512_context bmw;
+	sph_blake512_context blake;
+	sph_bmw512_context bmw;
 #if defined(__AES__)
-   hashState_echo echo;
-   hashState_groestl groestl;
+	hashState_echo echo;
+	hashState_groestl groestl;
 #else
-   sph_groestl512_context groestl;
-   sph_echo512_context echo;
+	sph_groestl512_context groestl;
+	sph_echo512_context echo;
 #endif
-   sph_jh512_context jh;
-   sph_keccak512_context keccak;
-   sph_skein512_context skein;
-   hashState_luffa luffa;
-   cubehashParam cube;
-   sph_shavite512_context shavite;
-   hashState_sd simd;
+	sph_jh512_context jh;
+	sph_keccak512_context keccak;
+	sph_skein512_context skein;
+	hashState_luffa luffa;
+	cubehashParam cube;
+	sph_shavite512_context shavite;
+	hashState_sd simd;
 } x11kv_ctx_holder;
 
 x11kv_ctx_holder x11kv_ctx;
 
 void init_x11kv_ctx()
 {
-   sph_blake512_init(&x11kv_ctx.blake);
-   sph_bmw512_init(&x11kv_ctx.bmw);
+	sph_blake512_init(&x11kv_ctx.blake);
+	sph_bmw512_init(&x11kv_ctx.bmw);
 #if defined(__AES__)
-   init_groestl(&x11kv_ctx.groestl, 64);
-   init_echo(&x11kv_ctx.echo, 512);
+	init_groestl(&x11kv_ctx.groestl, 64);
+	init_echo(&x11kv_ctx.echo, 512);
 #else
-   sph_groestl512_init(&x11kv_ctx.groestl);
-   sph_echo512_init(&x11kv_ctx.echo);
+	sph_groestl512_init(&x11kv_ctx.groestl);
+	sph_echo512_init(&x11kv_ctx.echo);
 #endif
-   sph_skein512_init(&x11kv_ctx.skein);
-   sph_jh512_init(&x11kv_ctx.jh);
-   sph_keccak512_init(&x11kv_ctx.keccak);
-   init_luffa(&x11kv_ctx.luffa, 512);
-   cubehashInit(&x11kv_ctx.cube, 512, 16, 32);
-   sph_shavite512_init(&x11kv_ctx.shavite);
-   init_sd(&x11kv_ctx.simd, 512);
+	sph_skein512_init(&x11kv_ctx.skein);
+	sph_jh512_init(&x11kv_ctx.jh);
+	sph_keccak512_init(&x11kv_ctx.keccak);
+	init_luffa(&x11kv_ctx.luffa, 512);
+	cubehashInit(&x11kv_ctx.cube, 512, 16, 32);
+	sph_shavite512_init(&x11kv_ctx.shavite);
+	init_sd(&x11kv_ctx.simd, 512);
 }
 
-const unsigned int HASHX11KV_MIN_NUMBER_ITERATIONS  = 2;
-const unsigned int HASHX11KV_MAX_NUMBER_ITERATIONS  = 6;
-const unsigned int HASHX11KV_NUMBER_ALGOS           = 11;
+const unsigned int HASHX11KV_MIN_NUMBER_ITERATIONS = 2;
+const unsigned int HASHX11KV_MAX_NUMBER_ITERATIONS = 6;
+const unsigned int HASHX11KV_NUMBER_ALGOS = 11;
 
 void x11kv(void *state, const void *input)
 {
 	unsigned char hash[64] __attribute__((aligned(64)));
-	unsigned char * p;
+	unsigned char *p;
 	x11kv_ctx_holder ctx;
 	memcpy(&ctx, &x11kv_ctx, sizeof(x11kv_ctx));
 
 	sph_blake512(&ctx.blake, input, 80);
 	sph_blake512_close(&ctx.blake, hash);
 
-	p = (unsigned char *) hash;
+	p = (unsigned char *)hash;
 	unsigned int n = HASHX11KV_MIN_NUMBER_ITERATIONS + (p[63] % (HASHX11KV_MAX_NUMBER_ITERATIONS - HASHX11KV_MIN_NUMBER_ITERATIONS + 1));
-   
+
 	for (int i = 1; i < n; i++)
 	{
-		p = (unsigned char *) hash;
+		p = (unsigned char *)hash;
 		switch (p[i] % 11)
 		{
 		case 0:
@@ -100,15 +100,15 @@ void x11kv(void *state, const void *input)
 			sph_bmw512_close(&ctx.bmw, hash);
 			break;
 		case 2:
-	#if defined(__AES__)
+#if defined(__AES__)
 			init_groestl(&ctx.groestl, 64);
 			update_and_final_groestl(&ctx.groestl, (char *)hash,
-									(const char *)hash, 512);
-	#else
+									 (const char *)hash, 512);
+#else
 			sph_groestl512_init(&ctx.groestl);
 			sph_groestl512(&ctx.groestl, hash, 64);
 			sph_groestl512_close(&ctx.groestl, hash);
-	#endif
+#endif
 			break;
 		case 3:
 			sph_skein512_init(&ctx.skein);
@@ -146,69 +146,78 @@ void x11kv(void *state, const void *input)
 			final_sd(&ctx.simd, (BitSequence *)hash);
 			break;
 		case 10:
-	#if defined(__AES__)
+#if defined(__AES__)
 			init_echo(&ctx.echo, 512);
 			update_final_echo(&ctx.echo, (BitSequence *)hash,
-							(const BitSequence *)hash, 512);
-	#else
+							  (const BitSequence *)hash, 512);
+#else
 			sph_echo512_init(&ctx.echo);
 			sph_echo512(&ctx.echo, hash, 64);
 			sph_echo512_close(&ctx.echo, hash);
-	#endif
+#endif
 			break;
-      }
-   }
+		}
+	}
 
-   memcpy(state, hash, 32);
+	memcpy(state, hash, 32);
 }
 
-const uint32_t HASHX11KVS_MAX_LEVEL 		= 7;
-const uint32_t HASHX11KVS_MIN_LEVEL 		= 1;
-const uint32_t HASHX11KVS_MAX_DRIFT 		= 0xFFFF;
-const uint32_t HASHX11KVS_CACHE_CHUNK 		= 33;
-const uint32_t HASHX11KVS_CACHE_POSITIONS	= 0xFFFF;
-const uint32_t HASHX11KVS_CACHE_POSITIONS_2	= 0xFFFF * 2;
-const uint32_t HASHX11KVS_CACHE_POSITIONS_3	= 0xFFFF * 3;
-const uint32_t HASHX11KVS_CACHE_POSITIONS_4	= 0xFFFF * 4;
-const uint32_t HASHX11KVS_CACHE_POSITIONS_5	= 0xFFFF * 5;
-const uint32_t HASHX11KVS_CACHE_POSITIONS_6	= 0xFFFF * 6;
-const uint32_t HASHX11KVS_CACHE_SIZE		= 0xFFFF * 33;
-const uint32_t HASHX11KVS_CACHE_SIZE_2		= 0xFFFF * 33 + 0xFFFF * 33 * 2;
-const uint32_t HASHX11KVS_CACHE_SIZE_3		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3; 
-const uint32_t HASHX11KVS_CACHE_SIZE_4		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4;
-const uint32_t HASHX11KVS_CACHE_SIZE_5		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4 + 0xFFFF * 33 * 5;
-const uint32_t HASHX11KVS_CACHE_SIZE_6		= 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4 + 0xFFFF * 33 * 5 + 0xFFFF * 33 * 6;
+const uint32_t HASHX11KVS_MAX_LEVEL = 7;
+const uint32_t HASHX11KVS_MIN_LEVEL = 1;
+const uint32_t HASHX11KVS_MAX_DRIFT = 0xFFFF;
+const uint32_t HASHX11KVS_CACHE_CHUNK = 33;
+const uint32_t HASHX11KVS_CACHE_POSITIONS = 0xFFFF;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_2 = 0xFFFF * 2;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_3 = 0xFFFF * 3;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_4 = 0xFFFF * 4;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_5 = 0xFFFF * 5;
+const uint32_t HASHX11KVS_CACHE_POSITIONS_6 = 0xFFFF * 6;
+const uint32_t HASHX11KVS_CACHE_SIZE = 0xFFFF * 33;
+const uint32_t HASHX11KVS_CACHE_SIZE_2 = 0xFFFF * 33 + 0xFFFF * 33 * 2;
+const uint32_t HASHX11KVS_CACHE_SIZE_3 = 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3;
+const uint32_t HASHX11KVS_CACHE_SIZE_4 = 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4;
+const uint32_t HASHX11KVS_CACHE_SIZE_5 = 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4 + 0xFFFF * 33 * 5;
+const uint32_t HASHX11KVS_CACHE_SIZE_6 = 0xFFFF * 33 + 0xFFFF * 33 * 2 + 0xFFFF * 33 * 3 + 0xFFFF * 33 * 4 + 0xFFFF * 33 * 5 + 0xFFFF * 33 * 6;
 
-void x11kvshash(void *output, const void *input, uint32_t level, uint32_t nonce, uint8_t* cache)
+void x11kvshash(void *output, const void *input, uint32_t level, uint32_t nonce, uint8_t *cache)
 {
-    if(level == HASHX11KVS_MAX_LEVEL - 1 && cache[(nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
-		memcpy(output, cache + ((nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
-		return;
-	}
+	if (cache)
+	{
+		if (level == HASHX11KVS_MAX_LEVEL - 1 && cache[(nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] == 0xFF)
+		{ // cache hit
+			memcpy(output, cache + ((nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+			return;
+		}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 2 && cache[HASHX11KVS_CACHE_SIZE + (nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
-		memcpy(output, cache + HASHX11KVS_CACHE_SIZE + ((nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
-		return;
-	}
+		if (level == HASHX11KVS_MAX_LEVEL - 2 && cache[HASHX11KVS_CACHE_SIZE + (nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK] == 0xFF)
+		{ // cache hit
+			memcpy(output, cache + HASHX11KVS_CACHE_SIZE + ((nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+			return;
+		}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 3 && cache[HASHX11KVS_CACHE_SIZE_2 + (nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
-		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_2 + ((nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
-		return;
-	}
+		if (level == HASHX11KVS_MAX_LEVEL - 3 && cache[HASHX11KVS_CACHE_SIZE_2 + (nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK] == 0xFF)
+		{ // cache hit
+			memcpy(output, cache + HASHX11KVS_CACHE_SIZE_2 + ((nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+			return;
+		}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 4 && cache[HASHX11KVS_CACHE_SIZE_3 + (nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
-		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_3 + ((nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
-		return;
-	}
+		if (level == HASHX11KVS_MAX_LEVEL - 4 && cache[HASHX11KVS_CACHE_SIZE_3 + (nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK] == 0xFF)
+		{ // cache hit
+			memcpy(output, cache + HASHX11KVS_CACHE_SIZE_3 + ((nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+			return;
+		}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 5 && cache[HASHX11KVS_CACHE_SIZE_4 + (nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
-		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_4 + ((nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
-		return;
-	}
+		if (level == HASHX11KVS_MAX_LEVEL - 5 && cache[HASHX11KVS_CACHE_SIZE_4 + (nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK] == 0xFF)
+		{ // cache hit
+			memcpy(output, cache + HASHX11KVS_CACHE_SIZE_4 + ((nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+			return;
+		}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 6 && cache[HASHX11KVS_CACHE_SIZE_5 + (nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] == 0xFF) { // cache hit
-		memcpy(output, cache + HASHX11KVS_CACHE_SIZE_5 + ((nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
-		return;
+		if (level == HASHX11KVS_MAX_LEVEL - 6 && cache[HASHX11KVS_CACHE_SIZE_5 + (nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] == 0xFF)
+		{ // cache hit
+			memcpy(output, cache + HASHX11KVS_CACHE_SIZE_5 + ((nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK) + 1, 32);
+			return;
+		}
 	}
 
 	uint8_t hash[96];
@@ -217,12 +226,15 @@ void x11kvshash(void *output, const void *input, uint32_t level, uint32_t nonce,
 	if (level == HASHX11KVS_MIN_LEVEL)
 	{
 		memcpy(output, hash, 32);
-		cache[HASHX11KVS_CACHE_SIZE_5 + (nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
-		memcpy(cache + HASHX11KVS_CACHE_SIZE_5 + ((nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		if (cache)
+		{
+			cache[HASHX11KVS_CACHE_SIZE_5 + (nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
+			memcpy(cache + HASHX11KVS_CACHE_SIZE_5 + ((nonce % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
+		}
 		return;
 	}
 
-	if (level == HASHX11KVS_MAX_LEVEL)
+	if (cache && level == HASHX11KVS_MAX_LEVEL)
 	{
 		// cache clean
 		cache[((nonce - 1) % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] = 0x00;
@@ -233,63 +245,67 @@ void x11kvshash(void *output, const void *input, uint32_t level, uint32_t nonce,
 		cache[HASHX11KVS_CACHE_SIZE_5 + ((nonce - 1) % HASHX11KVS_CACHE_POSITIONS_6) * HASHX11KVS_CACHE_CHUNK] = 0x00;
 	}
 
-    uint8_t nextheader1[80];
-    uint8_t nextheader2[80];
+	uint8_t nextheader1[80];
+	uint8_t nextheader2[80];
 
-    uint32_t nextnonce1 = nonce + (le32dec(hash + 24) % HASHX11KVS_MAX_DRIFT);
-    uint32_t nextnonce2 = nonce + (le32dec(hash + 28) % HASHX11KVS_MAX_DRIFT);
+	uint32_t nextnonce1 = nonce + (le32dec(hash + 24) % HASHX11KVS_MAX_DRIFT);
+	uint32_t nextnonce2 = nonce + (le32dec(hash + 28) % HASHX11KVS_MAX_DRIFT);
 
-    memcpy(nextheader1, input, 76);
-    le32enc(nextheader1 + 76, nextnonce1);
+	memcpy(nextheader1, input, 76);
+	le32enc(nextheader1 + 76, nextnonce1);
 
-    memcpy(nextheader2, input, 76);
-    le32enc(nextheader2 + 76, nextnonce2);
+	memcpy(nextheader2, input, 76);
+	le32enc(nextheader2 + 76, nextnonce2);
 
 	x11kvshash(hash + 32, nextheader1, level - 1, nextnonce1, cache);
-    x11kvshash(hash + 64, nextheader2, level - 1, nextnonce2, cache);
+	x11kvshash(hash + 64, nextheader2, level - 1, nextnonce2, cache);
 
 	sha256d(output, hash, 96);
 
 	// cache store
-	if(level == HASHX11KVS_MAX_LEVEL - 1) { 
+	if (cache && level == HASHX11KVS_MAX_LEVEL - 1)
+	{
 		cache[(nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
 		memcpy(cache + ((nonce % HASHX11KVS_CACHE_POSITIONS) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
 		return;
 	}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 2) { 
+	if (cache && level == HASHX11KVS_MAX_LEVEL - 2)
+	{
 		cache[HASHX11KVS_CACHE_SIZE + (nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
 		memcpy(cache + HASHX11KVS_CACHE_SIZE + ((nonce % HASHX11KVS_CACHE_POSITIONS_2) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
 		return;
 	}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 3) { 
+	if (cache && level == HASHX11KVS_MAX_LEVEL - 3)
+	{
 		cache[HASHX11KVS_CACHE_SIZE_2 + (nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
 		memcpy(cache + HASHX11KVS_CACHE_SIZE_2 + ((nonce % HASHX11KVS_CACHE_POSITIONS_3) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
 		return;
 	}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 4) { 
+	if (cache && level == HASHX11KVS_MAX_LEVEL - 4)
+	{
 		cache[HASHX11KVS_CACHE_SIZE_3 + (nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
 		memcpy(cache + HASHX11KVS_CACHE_SIZE_3 + ((nonce % HASHX11KVS_CACHE_POSITIONS_4) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
 		return;
 	}
 
-	if(level == HASHX11KVS_MAX_LEVEL - 5) { 
+	if (cache && level == HASHX11KVS_MAX_LEVEL - 5)
+	{
 		cache[HASHX11KVS_CACHE_SIZE_4 + (nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK] = 0xFF;
 		memcpy(cache + HASHX11KVS_CACHE_SIZE_4 + ((nonce % HASHX11KVS_CACHE_POSITIONS_5) * HASHX11KVS_CACHE_CHUNK) + 1, output, 32);
 		return;
 	}
 }
 
-void x11kvs_hash(void *state, const void *input, uint8_t* cache)
+void x11kvs_hash(void *state, const void *input, uint8_t *cache)
 {
-	x11kvshash(state, input, HASHX11KVS_MAX_LEVEL, le32dec(((uint8_t*)input) + 76), cache);
+	x11kvshash(state, input, HASHX11KVS_MAX_LEVEL, le32dec(((uint8_t *)input) + 76), cache);
 }
 
-
 int scanhash_x11kvs(struct work *work, uint32_t max_nonce,
-                  uint64_t *hashes_done, struct thr_info *mythr)
+					uint64_t *hashes_done, struct thr_info *mythr)
 {
 	uint32_t endiandata[20] __attribute__((aligned(64)));
 	uint32_t hash64[8] __attribute__((aligned(64)));
@@ -314,37 +330,39 @@ int scanhash_x11kvs(struct work *work, uint32_t max_nonce,
 		0xFFFF0000,
 		0};
 
-	uint8_t	 *cache = (uint8_t*) malloc(HASHX11KVS_CACHE_SIZE_6);
+	uint8_t *cache = (uint8_t*) malloc(HASHX11KVS_CACHE_SIZE_6);
 
 	memset(cache, 0x00, HASHX11KVS_CACHE_SIZE_6);
 
-   // big endian encode 0..18 uint32_t, 64 bits at a time
-   swab32_array(endiandata, pdata, 20);
+	// big endian encode 0..18 uint32_t, 64 bits at a time
+	swab32_array(endiandata, pdata, 20);
 
-   for (int m = 0; m < 6; m++) {
-      if (Htarg <= htmax[m])
-      {
-		uint32_t mask = masks[m];
-		do
+	for (int m = 0; m < 6; m++)
+	{
+		if (Htarg <= htmax[m])
 		{
-			pdata[19] = ++n;
-			le32enc(&endiandata[19], n);
-			x11kvs_hash(hash64, &endiandata, cache);
-
-			if ((hash64[7] & mask) == 0)
+			uint32_t mask = masks[m];
+			do
 			{
-				if (fulltest(hash64, ptarget)) {
-					pdata[19] = swab32(pdata[19]);
-					submit_solution(work, hash64, mythr);
-				}
-			}
-		} while (n < max_nonce && !work_restart[thr_id].restart);
-      }
-   }
+				pdata[19] = ++n;
+				le32enc(&endiandata[19], n);
+				x11kvs_hash(hash64, &endiandata, cache);
 
-   *hashes_done = n - first_nonce + 1;
-   pdata[19] = n;
-   free(cache);
-   return 0;
+				if ((hash64[7] & mask) == 0)
+				{
+					if (fulltest(hash64, ptarget))
+					{
+						pdata[19] = swab32(pdata[19]);
+						submit_solution(work, hash64, mythr);
+					}
+				}
+			} while (n < max_nonce && !work_restart[thr_id].restart);
+		}
+	}
+
+	*hashes_done = n - first_nonce + 1;
+	pdata[19] = n;
+	free(cache);
+	return 0;
 }
 #endif

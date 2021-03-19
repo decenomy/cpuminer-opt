@@ -16,8 +16,7 @@
 
 #if defined (X16R_8WAY)
 
-// Perform midstate prehash of hash functions with block size <= 64 bytes
-// and interleave 4x64 before nonce insertion for final hash.
+// Perform midstate prehash of hash functions with block size <= 72 bytes.
 
 void x16r_8way_prehash( void *vdata, void *pdata )
 {
@@ -33,6 +32,11 @@ void x16r_8way_prehash( void *vdata, void *pdata )
          mm512_bswap32_intrlv80_8x64( vdata, pdata );
          jh512_8way_init( &x16r_ctx.jh );
          jh512_8way_update( &x16r_ctx.jh, vdata, 64 );
+      break;
+      case KECCAK:
+         mm512_bswap32_intrlv80_8x64( vdata, pdata );
+         keccak512_8way_init( &x16r_ctx.keccak );
+         keccak512_8way_update( &x16r_ctx.keccak, vdata, 72 );
       break;
       case SKEIN:
          mm512_bswap32_intrlv80_8x64( vdata, pdata );
@@ -173,13 +177,13 @@ int x16r_8way_hash_generic( void* output, const void* input, int thrid )
                           hash7, vhash );
          break;
          case KECCAK:
-            keccak512_8way_init( &ctx.keccak );
-            if ( i == 0 )
-               keccak512_8way_update( &ctx.keccak, input, size );
+           if ( i == 0 )
+               keccak512_8way_update( &ctx.keccak, input + (72<<3), 8 );
             else
             {
                intrlv_8x64( vhash, in0, in1, in2, in3, in4, in5, in6, in7, 
                             size<<3 );
+               keccak512_8way_init( &ctx.keccak );
                keccak512_8way_update( &ctx.keccak, vhash, size );
             }
             keccak512_8way_close( &ctx.keccak, vhash );
@@ -347,14 +351,14 @@ int x16r_8way_hash_generic( void* output, const void* input, int thrid )
                           hash7, vhash );
          break;
          case FUGUE:
-             sph_fugue512_full( &ctx.fugue, hash0, in0, size );
-             sph_fugue512_full( &ctx.fugue, hash1, in1, size );
-             sph_fugue512_full( &ctx.fugue, hash2, in2, size );
-             sph_fugue512_full( &ctx.fugue, hash3, in3, size );
-             sph_fugue512_full( &ctx.fugue, hash4, in4, size );
-             sph_fugue512_full( &ctx.fugue, hash5, in5, size );
-             sph_fugue512_full( &ctx.fugue, hash6, in6, size );
-             sph_fugue512_full( &ctx.fugue, hash7, in7, size );
+             fugue512_full( &ctx.fugue, hash0, in0, size );
+             fugue512_full( &ctx.fugue, hash1, in1, size );
+             fugue512_full( &ctx.fugue, hash2, in2, size );
+             fugue512_full( &ctx.fugue, hash3, in3, size );
+             fugue512_full( &ctx.fugue, hash4, in4, size );
+             fugue512_full( &ctx.fugue, hash5, in5, size );
+             fugue512_full( &ctx.fugue, hash6, in6, size );
+             fugue512_full( &ctx.fugue, hash7, in7, size );
          break;
          case SHABAL:
              intrlv_8x32( vhash, in0, in1, in2, in3, in4, in5, in6, in7,
@@ -490,6 +494,7 @@ int scanhash_x16r_8way( struct work *work, uint32_t max_nonce,
    {
       x16_r_s_getAlgoString( (const uint8_t*)bedata1, x16r_hash_order );
       s_ntime = ntime;
+
       if ( opt_debug && !thr_id )
           applog( LOG_INFO, "hash order %s (%08x)", x16r_hash_order, ntime );
    }
@@ -532,6 +537,11 @@ void x16r_4way_prehash( void *vdata, void *pdata )
          mm256_bswap32_intrlv80_4x64( vdata, pdata );
          jh512_4way_init( &x16r_ctx.jh );
          jh512_4way_update( &x16r_ctx.jh, vdata, 64 );
+      break;
+      case KECCAK:
+         mm256_bswap32_intrlv80_4x64( vdata, pdata );
+         keccak512_4way_init( &x16r_ctx.keccak );
+         keccak512_4way_update( &x16r_ctx.keccak, vdata, 72 );
       break;
       case SKEIN:
          mm256_bswap32_intrlv80_4x64( vdata, pdata );
@@ -619,11 +629,20 @@ int x16r_4way_hash_generic( void* output, const void* input, int thrid )
             dintrlv_4x64_512( hash0, hash1, hash2, hash3, vhash );
          break;
          case GROESTL:
+#if defined(__VAES__)
+            intrlv_2x128( vhash, in0, in1, size<<3 );
+            groestl512_2way_full( &ctx.groestl, vhash, vhash, size );
+            dintrlv_2x128_512( hash0, hash1, vhash );
+            intrlv_2x128( vhash, in2, in3, size<<3 );
+            groestl512_2way_full( &ctx.groestl, vhash, vhash, size );
+            dintrlv_2x128_512( hash2, hash3, vhash );
+#else
             groestl512_full( &ctx.groestl, (char*)hash0, (char*)in0, size<<3 );
             groestl512_full( &ctx.groestl, (char*)hash1, (char*)in1, size<<3 );
             groestl512_full( &ctx.groestl, (char*)hash2, (char*)in2, size<<3 );
             groestl512_full( &ctx.groestl, (char*)hash3, (char*)in3, size<<3 );
-         break;
+#endif
+   	    break;
          case JH:
             if ( i == 0 )
                jh512_4way_update( &ctx.jh, input + (64<<2), 16 );
@@ -637,12 +656,12 @@ int x16r_4way_hash_generic( void* output, const void* input, int thrid )
             dintrlv_4x64_512( hash0, hash1, hash2, hash3, vhash );
          break;
          case KECCAK:
-            keccak512_4way_init( &ctx.keccak );
-            if ( i == 0 )
-               keccak512_4way_update( &ctx.keccak, input, size );
+           if ( i == 0 )
+               keccak512_4way_update( &ctx.keccak, input + (72<<2), 8 );
             else
             {
                intrlv_4x64( vhash, in0, in1, in2, in3, size<<3 );
+               keccak512_4way_init( &ctx.keccak );
                keccak512_4way_update( &ctx.keccak, vhash, size );
             }
             keccak512_4way_close( &ctx.keccak, vhash );
@@ -711,11 +730,20 @@ int x16r_4way_hash_generic( void* output, const void* input, int thrid )
             }
          break;
          case SHAVITE:
+#if defined(__VAES__)
+            intrlv_2x128( vhash, in0, in1, size<<3 );
+            shavite512_2way_full( &ctx.shavite, vhash, vhash, size );
+            dintrlv_2x128_512( hash0, hash1, vhash );
+            intrlv_2x128( vhash, in2, in3, size<<3 );
+            shavite512_2way_full( &ctx.shavite, vhash, vhash, size );
+            dintrlv_2x128_512( hash2, hash3, vhash );
+#else
             shavite512_full( &ctx.shavite, hash0, in0, size );
             shavite512_full( &ctx.shavite, hash1, in1, size );
             shavite512_full( &ctx.shavite, hash2, in2, size );
             shavite512_full( &ctx.shavite, hash3, in3, size );
-         break;
+#endif
+   	    break;
          case SIMD:
             intrlv_2x128( vhash, in0, in1, size<<3 );
             simd512_2way_full( &ctx.simd, vhash, vhash, size );
@@ -725,6 +753,14 @@ int x16r_4way_hash_generic( void* output, const void* input, int thrid )
             dintrlv_2x128_512( hash2, hash3, vhash );
          break;
          case ECHO:
+#if defined(__VAES__)
+            intrlv_2x128( vhash, in0, in1, size<<3 );
+            echo_2way_full( &ctx.echo, vhash, 512, vhash, size );
+            dintrlv_2x128_512( hash0, hash1, vhash );
+            intrlv_2x128( vhash, in2, in3, size<<3 );
+            echo_2way_full( &ctx.echo, vhash, 512, vhash, size );
+            dintrlv_2x128_512( hash2, hash3, vhash );
+#else
             echo_full( &ctx.echo, (BitSequence *)hash0, 512,
                               (const BitSequence *)in0, size );
             echo_full( &ctx.echo, (BitSequence *)hash1, 512,
@@ -733,7 +769,8 @@ int x16r_4way_hash_generic( void* output, const void* input, int thrid )
                               (const BitSequence *)in2, size );
             echo_full( &ctx.echo, (BitSequence *)hash3, 512,
                               (const BitSequence *)in3, size );
-         break;
+#endif
+   	    break;
          case HAMSI:
             if ( i == 0 )
                hamsi512_4way_update( &ctx.hamsi, input + (64<<2), 16 );
@@ -747,10 +784,10 @@ int x16r_4way_hash_generic( void* output, const void* input, int thrid )
             dintrlv_4x64_512( hash0, hash1, hash2, hash3, vhash );
          break;
          case FUGUE:
-             sph_fugue512_full( &ctx.fugue, hash0, in0, size );
-             sph_fugue512_full( &ctx.fugue, hash1, in1, size );
-             sph_fugue512_full( &ctx.fugue, hash2, in2, size );
-             sph_fugue512_full( &ctx.fugue, hash3, in3, size );
+             fugue512_full( &ctx.fugue, hash0, in0, size );
+             fugue512_full( &ctx.fugue, hash1, in1, size );
+             fugue512_full( &ctx.fugue, hash2, in2, size );
+             fugue512_full( &ctx.fugue, hash3, in3, size );
          break;
          case SHABAL:
              intrlv_4x32( vhash, in0, in1, in2, in3, size<<3 );
@@ -856,7 +893,7 @@ int scanhash_x16r_4way( struct work *work, uint32_t max_nonce,
       x16_r_s_getAlgoString( (const uint8_t*)bedata1, x16r_hash_order );
       s_ntime = ntime;
       if ( opt_debug && !thr_id )
-              applog( LOG_INFO, "hash order %s (%08x)", x16r_hash_order, ntime );
+         applog( LOG_INFO, "hash order %s (%08x)", x16r_hash_order, ntime );
    }
 
    x16r_4way_prehash( vdata, pdata );

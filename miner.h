@@ -444,7 +444,8 @@ struct stratum_ctx {
 	struct work work __attribute__ ((aligned (64)));
 	pthread_mutex_t work_lock;
 
-	int block_height;
+   int block_height;
+   bool new_job;  
 } __attribute__ ((aligned (64)));
 
 bool stratum_socket_full(struct stratum_ctx *sctx, int timeout);
@@ -455,9 +456,6 @@ void stratum_disconnect(struct stratum_ctx *sctx);
 bool stratum_subscribe(struct stratum_ctx *sctx);
 bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
 bool stratum_handle_method(struct stratum_ctx *sctx, const char *s);
-
-extern bool lowdiff_debug;
-
 
 
 extern bool aes_ni_supported;
@@ -548,7 +546,7 @@ enum algos {
         ALGO_LYRA2REV3,
         ALGO_LYRA2Z,
         ALGO_LYRA2Z330,
-	ALGO_M7M,
+        ALGO_M7M,
         ALGO_MINOTAUR,
         ALGO_MYR_GR,      
         ALGO_NEOSCRYPT,
@@ -643,7 +641,7 @@ static const char* const algo_names[] = {
         "lyra2z330",
         "m7m",
         "minotaur",
-	"myr-gr",
+        "myr-gr",
         "neoscrypt",
         "nist5",
         "pentablake",
@@ -772,7 +770,7 @@ Options:\n\
                           allium        Garlicoin (GRLC)\n\
                           anime         Animecoin (ANI)\n\
                           argon2        Argon2 Coin (AR2)\n\
-                          argon2d250    argon2d-crds, Credits (CRDS)\n\
+                          argon2d250\n\
                           argon2d500    argon2d-dyn, Dynamic (DYN)\n\
                           argon2d4096   argon2d-uis, Unitus (UIS)\n\
                           axiom         Shabal-256 MemoHash\n\
@@ -797,13 +795,13 @@ Options:\n\
                           lyra2h        Hppcoin\n\
                           lyra2re       lyra2\n\
                           lyra2rev2     lyrav2\n\
-                          lyra2rev3     lyrav2v3, Vertcoin\n\
+                          lyra2rev3     lyrav2v3\n\
                           lyra2z\n\
                           lyra2z330     Lyra2 330 rows\n\
                           m7m           Magi (XMG)\n\
                           myr-gr        Myriad-Groestl\n\
                           minotaur      Ringcoin (RNG)\n\
-			  neoscrypt     NeoScrypt(128, 2, 1)\n\
+                          neoscrypt     NeoScrypt(128, 2, 1)\n\
                           nist5         Nist5\n\
                           pentablake    5 x blake512\n\
                           phi1612       phi\n\
@@ -817,7 +815,7 @@ Options:\n\
                           sha256d       Double SHA-256\n\
                           sha256q       Quad SHA-256, Pyrite (PYE)\n\
                           sha256t       Triple SHA-256, Onecoin (OC)\n\
-			                 sha3d         Double Keccak256 (BSHA3)\n\
+                          sha3d         Double Keccak256 (BSHA3)\n\
                           shavite3      Shavite3\n\
                           skein         Skein+Sha (Skeincoin)\n\
                           skein2        Double Skein (Woodcoin)\n\
@@ -877,7 +875,6 @@ Options:\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 5)\n\
       --randomize       Randomize scan range start to reduce duplicates\n\
-      --reset-on-stale  Workaround reset stratum if too many stale shares\n\
   -f, --diff-factor     Divide req. difficulty by this factor (std is 1.0)\n\
   -m, --diff-multiplier Multiply difficulty by this factor (std is 1.0)\n\
       --hash-meter      Display thread hash rates\n\

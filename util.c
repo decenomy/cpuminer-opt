@@ -1149,67 +1149,67 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 	return rc;
 }
 
-// Mathmatically the difficulty is simply the reciprocal of the hash.
+// Mathmatically the difficulty is simply the reciprocal of the hash: d = 1/h.
 // Both are real numbers but the hash (target) is represented as a 256 bit
-// number with the upper 32 bits representing the whole integer part and the
-// lower 224 bits representing the fractional part:
+// fixed point number with the upper 32 bits representing the whole integer
+// part and the lower 224 bits representing the fractional part:
 //   target[ 255:224 ] = trunc( 1/diff )
 //   target[ 223:  0 ] = frac( 1/diff )
 //
 // The 256 bit hash is exact but any floating point representation is not.
-// Stratum provides the target difficulty as double precision, inexcact, and
+// Stratum provides the target difficulty as double precision, inexcact,
 // which must be converted to a hash target. The converted hash target will
-// likely be less precise to to inexact input and conversion error.
-// converted to 256 bit hash which will also be inexact and likelyless
-// accurate to to error in conversion.
+// likely be less precise due to inexact input and conversion error.
 // On the other hand getwork provides a 256 bit hash target which is exact.
 //
 // How much precision is needed?
 //
-// 128 bit types are implemented in software by the compiler using 64 bit
+// 128 bit types are implemented in software by the compiler on 64 bit
 // hardware resulting in lower performance and more error than would be
-// expected with a hardware 128 bit implementtaion.
+// expected with a hardware 128 bit implementaion.
 // Float80 exploits the internals of the FP unit which provide a 64 bit
 // mantissa in an 80 bit register with hardware rounding. When the destination
 // is double the data is rounded to float64 format. Long double returns all
 // 80 bits without rounding and including any accumulated computation error.
 // Float80 does not fit efficiently in memory.
 //
-// 256 bit hash: 76
+// Significant digits:
+// 256 bit hash: 76     
 // float:         7     (float32, 80 bits with rounding to 32 bits)
 // double:       15     (float64, 80 bits with rounding to 64 bits)
-// long double   19     (float80, 80 bits with no rounding)
-// __float128    33     (128 bits with no rounding)
+// long double:  19     (float80, 80 bits with no rounding)
+// __float128:   33     (128 bits with no rounding)
 // uint32_t:      9
 // uint64_t:     19
 // uint128_t     38
 //
 // The concept of significant digits doesn't apply to the 256 bit hash
-// representation. It's fixed point making leading zeros significant
-// Leading zeros count in the 256 bit
+// representation. It's fixed point making leading zeros significant,
+// limiting its range and precision due to fewer zon-zero significant digits.
 //
 // Doing calculations with float128 and uint128 increases precision for
 // target_to_diff, but doesn't help with stratum diff being limited to
 // double precision. Is the extra precision really worth the extra cost?
+// With float128 the error rate is 1/1e33 compared with 1/1e15 for double.
+// For double that's 1 error in every petahash with a very low difficulty,
+// not a likely situation. With higher difficulty effective precision
+// increases.
 //
-// With double the error rate is 1/1e15, or one hash in every Petahash
-// with a very low difficulty, not a likely sitiation. Higher difficulty
-// increases the effective precision. Due to the floating nature of the
-// decimal point leading zeros aren't counted.
-//
-// Unfortunately I can't get float128 to work so long double it is.
+// Unfortunately I can't get float128 to work so long double (float80) is
+// as precise as it gets.
 // All calculations will be done using long double then converted to double.
-// This prevent introducing significant new error while taking advantage
+// This prevents introducing significant new error while taking advantage
 // of HW rounding.
 
 #if defined(GCC_INT128)
 
 void diff_to_hash(uint32_t *target, const double diff)
 {
-	uint128_t *targ = (uint128_t *)target;
-	register long double m = 1. / diff;
-	targ[0] = 0;
-	targ[1] = (uint128_t)(m * exp96);
+  uint128_t *targ = (uint128_t*)target;
+  register long double m = 1. / diff;
+//  targ[0] = 0;
+  targ[0] = -1;
+  targ[1] = (uint128_t)( m * exp96 );
 }
 
 double hash_to_diff(const void *target)
@@ -1237,11 +1237,12 @@ inline bool valid_hash(const void *hash, const void *target)
 
 void diff_to_hash(uint32_t *target, const double diff)
 {
-	uint64_t *targ = (uint64_t *)target;
-	register long double m = (1. / diff) * exp32;
-	targ[1] = targ[0] = 0;
-	targ[3] = (uint64_t)m;
-	targ[2] = (uint64_t)((m - (long double)targ[3]) * exp64);
+  uint64_t *targ = (uint64_t*)target;
+  register long double m = ( 1. / diff ) * exp32;
+//  targ[1] = targ[0] = 0;
+  targ[1] = targ[0] = -1;
+  targ[3] = (uint64_t)m;
+  targ[2] = (uint64_t)( ( m - (long double)targ[3] ) * exp64 );
 }
 
 double hash_to_diff(const void *target)
@@ -1614,9 +1615,12 @@ static bool stratum_parse_extranonce(struct stratum_ctx *sctx, json_t *params, i
 	sctx->xnonce2_size = xn2_size;
 	pthread_mutex_unlock(&sctx->work_lock);
 
-	if (pndx == 0 && opt_debug) /* pool dynamic change */
-		applog(LOG_DEBUG, "Stratum set nonce %s with extranonce2 size=%d",
-			   xnonce1, xn2_size);
+   if ( !opt_quiet ) /* pool dynamic change */
+      applog( LOG_INFO, "Stratum extranonce1= %s, extranonce2 size= %d",
+         xnonce1, xn2_size);
+//   if (pndx == 0 && opt_debug)
+//		applog(LOG_DEBUG, "Stratum set nonce %s with extranonce2 size=%d",
+//			xnonce1, xn2_size);
 
 	return true;
 out:
@@ -1717,8 +1721,6 @@ out:
 
 	return ret;
 }
-
-extern bool opt_extranonce;
 
 bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass)
 {
@@ -2330,7 +2332,8 @@ bool stratum_handle_method(struct stratum_ctx *sctx, const char *s)
 	if (!strcasecmp(method, "mining.notify"))
 	{
 		ret = stratum_notify(sctx, params);
-		goto out;
+      sctx->new_job = true;
+      goto out;
 	}
 	if (!strcasecmp(method, "mining.ping"))
 	{ // cgminer 4.7.1+

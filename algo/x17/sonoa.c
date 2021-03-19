@@ -14,20 +14,21 @@
 #include "algo/skein/sph_skein.h"
 #include "algo/shavite/sph_shavite.h"
 #include "algo/hamsi/sph_hamsi.h"
-#include "algo/fugue/sph_fugue.h"
 #include "algo/shabal/sph_shabal.h"
 #include "algo/whirlpool/sph_whirlpool.h"
 #include "algo/haval/sph-haval.h"
 #include "algo/luffa/luffa_for_sse2.h"
 #include "algo/cubehash/cubehash_sse2.h"
 #include "algo/simd/nist.h"
-#include <openssl/sha.h>
+#include "algo/sha/sph_sha2.h"
 #if defined(__AES__)
   #include "algo/echo/aes_ni/hash_api.h"
   #include "algo/groestl/aes_ni/hash-groestl.h"
+  #include "algo/fugue/fugue-aesni.h"
 #else
   #include "algo/groestl/sph_groestl.h"
   #include "algo/echo/sph_echo.h"
+  #include "algo/fugue/sph_fugue.h"
 #endif
 
 typedef struct {
@@ -36,9 +37,11 @@ typedef struct {
 #if defined(__AES__)
         hashState_echo          echo;
         hashState_groestl       groestl;
+        hashState_fugue         fugue;
 #else
         sph_groestl512_context  groestl;
         sph_echo512_context     echo;
+        sph_fugue512_context    fugue;
 #endif
         sph_jh512_context       jh;
         sph_keccak512_context   keccak;
@@ -48,10 +51,9 @@ typedef struct {
         sph_shavite512_context  shavite;
         hashState_sd            simd;
         sph_hamsi512_context    hamsi;
-        sph_fugue512_context    fugue;
         sph_shabal512_context   shabal;
         sph_whirlpool_context   whirlpool;
-        SHA512_CTX              sha512;
+        sph_sha512_context      sha512;
         sph_haval256_5_context  haval;
 } sonoa_ctx_holder;
 
@@ -64,9 +66,11 @@ void init_sonoa_ctx()
 #if defined(__AES__)
         init_echo( &sonoa_ctx.echo, 512 );
         init_groestl( &sonoa_ctx.groestl, 64 );
+        fugue512_Init( &sonoa_ctx.fugue, 512 );
 #else
         sph_groestl512_init(&sonoa_ctx.groestl );
         sph_echo512_init( &sonoa_ctx.echo );
+        sph_fugue512_init( &sonoa_ctx.fugue );
 #endif
         sph_skein512_init( &sonoa_ctx.skein);
         sph_jh512_init( &sonoa_ctx.jh);
@@ -76,10 +80,9 @@ void init_sonoa_ctx()
         sph_shavite512_init( &sonoa_ctx.shavite );
         init_sd( &sonoa_ctx.simd, 512 );
         sph_hamsi512_init( &sonoa_ctx.hamsi );
-        sph_fugue512_init( &sonoa_ctx.fugue );
         sph_shabal512_init( &sonoa_ctx.shabal );
         sph_whirlpool_init( &sonoa_ctx.whirlpool );
-        SHA512_Init( &sonoa_ctx.sha512 );
+        sph_sha512_init( &sonoa_ctx.sha512 );
         sph_haval256_5_init(&sonoa_ctx.haval);
 };
 
@@ -249,8 +252,13 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_hamsi512(&ctx.hamsi, hash, 64);
    sph_hamsi512_close(&ctx.hamsi, hash);
 
+#if defined(__AES__)
+   fugue512_Update( &ctx.fugue, hash, 512 );
+   fugue512_Final( &ctx.fugue, hash ); 
+#else   
    sph_fugue512(&ctx.fugue, hash, 64);
    sph_fugue512_close(&ctx.fugue, hash);
+#endif
 
    if ( work_restart[thr_id].restart ) return 0;
 //
@@ -311,9 +319,11 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_hamsi512(&ctx.hamsi, hash, 64);
    sph_hamsi512_close(&ctx.hamsi, hash);
 
-   sph_fugue512_init( &ctx.fugue );
-   sph_fugue512(&ctx.fugue, hash, 64);
-   sph_fugue512_close(&ctx.fugue, hash);
+#if defined(__AES__)
+    fugue512_full( &ctx.fugue, hash, hash, 64 );
+#else
+    sph_fugue512_full( &ctx.fugue, hash, hash, 64 );
+#endif
 
    sph_shabal512(&ctx.shabal, hash, 64);
    sph_shabal512_close(&ctx.shabal, hash);
@@ -399,9 +409,11 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_hamsi512(&ctx.hamsi, hash, 64);
    sph_hamsi512_close(&ctx.hamsi, hash);
 
-   sph_fugue512_init( &ctx.fugue );
-   sph_fugue512(&ctx.fugue, hash, 64);
-   sph_fugue512_close(&ctx.fugue, hash);
+#if defined(__AES__)
+    fugue512_full( &ctx.fugue, hash, hash, 64 );
+#else
+    sph_fugue512_full( &ctx.fugue, hash, hash, 64 );
+#endif
 
    sph_shabal512_init( &ctx.shabal );
    sph_shabal512(&ctx.shabal, hash, 64);
@@ -468,9 +480,11 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_hamsi512(&ctx.hamsi, hash, 64);
    sph_hamsi512_close(&ctx.hamsi, hash);
 
-   sph_fugue512_init( &ctx.fugue );
-   sph_fugue512(&ctx.fugue, hash, 64);
-   sph_fugue512_close(&ctx.fugue, hash);
+#if defined(__AES__)
+    fugue512_full( &ctx.fugue, hash, hash, 64 );
+#else
+    sph_fugue512_full( &ctx.fugue, hash, hash, 64 );
+#endif
 
    sph_shabal512_init( &ctx.shabal );
    sph_shabal512(&ctx.shabal, hash, 64);
@@ -480,8 +494,8 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_whirlpool(&ctx.whirlpool, hash, 64);
    sph_whirlpool_close(&ctx.whirlpool, hash);
 
-   SHA512_Update( &ctx.sha512, hash, 64 );
-   SHA512_Final( (unsigned char*) hash, &ctx.sha512 );
+   sph_sha512( &ctx.sha512, hash, 64 );
+   sph_sha512_close( &ctx.sha512, hash );
 
    sph_whirlpool_init( &ctx.whirlpool );
    sph_whirlpool(&ctx.whirlpool, hash, 64);
@@ -546,9 +560,11 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_hamsi512(&ctx.hamsi, hash, 64);
    sph_hamsi512_close(&ctx.hamsi, hash);
 
-   sph_fugue512_init( &ctx.fugue );
-   sph_fugue512(&ctx.fugue, hash, 64);
-   sph_fugue512_close(&ctx.fugue, hash);
+#if defined(__AES__)
+    fugue512_full( &ctx.fugue, hash, hash, 64 );
+#else
+    sph_fugue512_full( &ctx.fugue, hash, hash, 64 );
+#endif
 
    sph_shabal512_init( &ctx.shabal );
    sph_shabal512(&ctx.shabal, hash, 64);
@@ -558,9 +574,9 @@ int sonoa_hash( void *state, const void *input, int thr_id )
    sph_whirlpool(&ctx.whirlpool, hash, 64);
    sph_whirlpool_close(&ctx.whirlpool, hash);
 
-   SHA512_Init( &ctx.sha512 );
-   SHA512_Update( &ctx.sha512, hash, 64 );
-   SHA512_Final( (unsigned char*) hash, &ctx.sha512 );
+   sph_sha512_init( &ctx.sha512 );
+   sph_sha512( &ctx.sha512, hash, 64 );
+   sph_sha512_close( &ctx.sha512, hash );
 
    sph_haval256_5(&ctx.haval,(const void*) hash, 64);
    sph_haval256_5_close(&ctx.haval, hash);

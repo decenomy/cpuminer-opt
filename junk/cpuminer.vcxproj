@@ -239,6 +239,7 @@
     <ClCompile Include="algo\skein2.c" />
     <ClCompile Include="algo\x11.c" />
     <ClCompile Include="algo\x11k.c" />
+    <ClCompile Include="algo\x11kvs.c" />
     <ClCompile Include="algo\x11_aes.c" />
     <ClCompile Include="algo\x11_sse2.c" />
     <ClCompile Include="algo\x13.c" />

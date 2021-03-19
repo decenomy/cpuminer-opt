@@ -353,6 +353,7 @@ bool register_algo_gate( int algo, algo_gate_t *gate )
     case ALGO_WHIRLPOOLX:    register_whirlpoolx_algo    ( gate ); break;
     case ALGO_X11:           register_x11_algo           ( gate ); break;
     case ALGO_X11K:          register_x11k_algo          ( gate ); break;
+    case ALGO_X11KVS:        register_x11kvs_algo        ( gate ); break;
     case ALGO_X11EVO:        register_x11evo_algo        ( gate ); break;
     case ALGO_X11GOST:       register_x11gost_algo       ( gate ); break;
     case ALGO_X12:           register_x12_algo           ( gate ); break;
